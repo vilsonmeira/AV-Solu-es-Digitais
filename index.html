@@ -80,7 +80,7 @@ function openAdmin(){
  show('Acesso administrativo AV','<p>Área restrita a Vilson e Américo.</p><form id="loginForm"><label>E-mail</label><input name="email" type="email" autocomplete="username" required><label>Senha</label><input name="password" type="password" autocomplete="current-password" required><button class="btn primary" type="submit">Entrar no painel</button></form><p class="muted" style="font-size:12px">Acesso somente para usuários previamente autorizados.</p>');
  document.getElementById('loginForm').addEventListener('submit',async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.currentTarget));const {data,error}=await sb.auth.signInWithPassword({email:d.email,password:d.password});if(error){alert('Não foi possível entrar. Verifique e-mail e senha.');return}const {data:ok,error:check}=await sb.rpc('is_av_admin');if(check||!ok){await sb.auth.signOut();alert('Usuário sem autorização administrativa.');return}currentAdmin=data.user;await adminPanel()});
 }
-async async function adminPanel(){
+async function adminPanel(){
  const [{data:ads,error:ae},{data:req,error:re}]=await Promise.all([sb.from('av_ads').select('*').order('created_at',{ascending:false}),sb.from('av_ad_requests').select('*').order('created_at',{ascending:false}).limit(50)]);
  if(ae||re){alert('Erro ao carregar o painel.');return}
  const rows=ads.map(a=>'<div class="tile" style="margin:10px 0"><b>'+esc(a.company_name)+'</b> — '+money(a.price)+'<p>Status: '+esc(a.status)+' | Pix: '+esc(a.payment_status)+'</p><div class="actions"><button class="btn light" onclick="editAd(\''+a.id+'\')">Editar</button><button class="btn light" onclick="toggleAd(\''+a.id+'\',\''+(a.status==='active'?'paused':'active')+'\')">'+(a.status==='active'?'Pausar':'Ativar')+'</button><button class="btn light" onclick="confirmPix(\''+a.id+'\')">Confirmar Pix</button><button class="btn light" onclick="removeAd(\''+a.id+'\')">Remover</button></div></div>').join('')||'<p>Nenhum anúncio cadastrado.</p>';
@@ -94,7 +94,7 @@ async function saveAd(id=null,seed={}){
 }
 function newAd(){saveAd()}
 async function editAd(id){const {data,error}=await sb.from('av_ads').select('*').eq('id',id).single();if(error)return alert('Não foi possível abrir o anúncio.');saveAd(id,data)}
-async function toggleAd(id,status){if(status==='active'){const {count,error:ce}=await sb.from('av_ads').select('id',{count:'exact',head:true}).eq('status','active').eq('payment_status','confirmed');if(ce){alert('Não foi possível conferir os espaços disponíveis.');return}if(count>=10){alert('A vitrine já possui 10 anúncios ativos. Pause ou remova um espaço antes de ativar outro.');return}}const {error}=await sb.from('av_ads').update({status}).eq('id',id);if(error)alert('Não foi possível alterar o status.');else{await loadAds();loadClientCards();loadClientCards();adminPanel()}}
+async function toggleAd(id,status){if(status==='active'){const {count,error:ce}=await sb.from('av_ads').select('id',{count:'exact',head:true}).eq('status','active').eq('payment_status','confirmed');if(ce){alert('Não foi possível conferir os espaços disponíveis.');return}if(count>=10){alert('A vitrine já possui 10 anúncios ativos. Pause ou remova um espaço antes de ativar outro.');return}}const {error}=await sb.from('av_ads').update({status}).eq('id',id);if(error)alert('Não foi possível alterar o status.');else{await loadAds();loadClientCards();adminPanel()}}
 async function confirmPix(id){if(!confirm('Confirma que o Pix foi recebido? Confira o extrato antes.'))return;const {error}=await sb.from('av_ads').update({payment_status:'confirmed'}).eq('id',id);if(error)alert('Não foi possível confirmar.');else{alert('Pix marcado como confirmado. Ative o anúncio para publicar.');adminPanel()}}
 async function removeAd(id){if(!confirm('Remover este anúncio?'))return;const {error}=await sb.from('av_ads').update({status:'removed'}).eq('id',id);if(error)alert('Não foi possível remover.');else adminPanel()}
 async function makeAdFromRequest(id){const {data,error}=await sb.from('av_ad_requests').select('*').eq('id',id).single();if(error)return alert('Solicitação não encontrada.');saveAd(null,{company_name:data.company_name,whatsapp:data.whatsapp,description:data.message})}
@@ -140,7 +140,7 @@ function printClientCard(){const el=document.getElementById('printCard');if(!el)
 async function editClient(id){const {data,error}=await sb.from('av_clients').select('*').eq('id',id).single();if(error){alert(error.message);return}clientForm(data,id)}
 async function toggleClient(id,status){const {error}=await sb.from('av_clients').update({status}).eq('id',id);if(error){alert(error.message);return}await loadClientCards();clientAdminPanel()}
 async function removeClient(id){if(!confirm('Remover este cartão?'))return;const {error}=await sb.from('av_clients').update({status:'removed',card_enabled:false}).eq('id',id);if(error){alert(error.message);return}await loadClientCards();clientAdminPanel()}
-async async function loadClientCards(){
+async function loadClientCards(){
  const el=document.getElementById('clientCards');if(!el)return;
  const {data,error}=await sb.from('av_clients').select('*').eq('status','active').eq('card_enabled',true).order('company_name');
  if(error){el.innerHTML='<p class="muted">Não foi possível carregar cartões.</p>';return}
