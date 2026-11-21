@@ -383,7 +383,8 @@ async function startTvMode(launchFullscreen=false){
    el.innerHTML='<div><h1>Seu negócio pode aparecer aqui!</h1><p>No modo teste, todos os materiais ativos poderão aparecer aqui. No modo oficial, somente Premium pago e confirmado.</p><p>Fale com a AV Soluções Digitais para anunciar.</p></div>';
    const info=document.getElementById('tvRotationInfo');if(info)info.textContent='Aguardando anúncios Premium aprovados';
    if(window.tvTimer)clearTimeout(window.tvTimer);
-   window.tvTimer=window.setTimeout(next,10000);
+   const retryDelay=hasMissing?Math.max(1000,15000-(Date.now()-window.avLastMissingAt)):10000;
+   window.tvTimer=window.setTimeout(next,Math.min(10000,retryDelay));
    return;
   }
   const item=data[Math.floor(Math.random()*data.length)],t=STUDIO_TEMPLATES.find(x=>x.id===item.design_template)||STUDIO_TEMPLATES[0];
