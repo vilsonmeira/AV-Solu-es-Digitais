@@ -191,7 +191,7 @@ async function publishCreativeListing(d){
 }
 async function loadCreativeDirectory(){
  const el=document.getElementById('creativeDirectory');if(!el)return;
- const {data,error}=await sb.from('av_creatives').select('id,brand,sector,material_type,headline,body,offer,contact,extra,design_template,created_at,free_expires_at,status,is_paid,payment_status,display_priority,updated_at').in('status',['active','archived']).order('created_at',{ascending:false});
+ const {data,error}=await sb.from('av_creatives').select('id,brand,sector,material_type,headline,body,offer,contact,extra,design_template,image_urls,created_at,free_expires_at,status,is_paid,payment_status,display_priority,updated_at').in('status',['active','archived']).order('created_at',{ascending:false});
  if(error){el.innerHTML='<p class="muted">Não foi possível carregar o guia.</p>';return}
  creativeDirectoryCache=data||[];filterCreativeDirectory();
 }
@@ -200,14 +200,75 @@ function filterCreativeDirectory(){
  const q=(document.getElementById('creativeSearch')?.value||'').trim().toLowerCase();
  const rows=creativeDirectoryCache.filter(x=>[x.brand,x.sector,x.material_type,x.headline,x.body,x.offer].join(' ').toLowerCase().includes(q));
  if(!rows.length){el.innerHTML='<p class="muted">Nenhum resultado. Tente outra palavra.</p>';return}
- el.innerHTML=rows.map(x=>{const expired=new Date(x.free_expires_at)<=new Date();return '<article class="tile" data-creative-id="'+x.id+'"><span class="tag">'+(expired?'GUIA GRATUITO • ARQUIVADO':'DIVULGAÇÃO GRATUITA • '+Math.max(0,Math.ceil((new Date(x.free_expires_at)-Date.now())/86400000))+' dias restantes')+'</span><h3>'+esc(x.brand)+'</h3><p><b>'+esc(x.headline)+'</b></p><p>'+esc(x.sector)+' · '+esc(STUDIO_TYPES[x.material_type]?.name||x.material_type)+'</p><p>'+esc(x.body||'')+'</p>'+(x.offer?'<p><b>'+esc(x.offer)+'</b></p>':'')+'<p>'+esc(x.contact||'')+' '+esc(x.extra||'')+'</p><button class="btn light" onclick="openCreativeDetails(\''+x.id+'\')">Ver material e contato</button></article>'}).join('');observeCreativeCards();
+ el.innerHTML=rows.map(x=>{const expired=new Date(x.free_expires_at)<=new Date();const pics=(x.image_urls||[]).slice(0,3);return '<article class="tile" data-creative-id="'+x.id+'"><span class="tag">'+(expired?'GUIA GRATUITO • ARQUIVADO':'DIVULGAÇÃO GRATUITA • '+Math.max(0,Math.ceil((new Date(x.free_expires_at)-Date.now())/86400000))+' dias restantes')+'</span><h3>'+esc(x.brand)+'</h3>'+(pics.length?'<div style="display:flex;gap:7px;overflow:hidden;margin:10px 0">'+pics.map(p=>'<img src="'+esc(p.url)+'" alt="Imagem de '+esc(x.brand)+'" loading="lazy" style="width:31%;height:105px;object-fit:contain;background:#f3f6fb;border-radius:9px">').join('')+'</div>':'')+'<p><b>'+esc(x.headline)+'</b></p><p>'+esc(x.sector)+' · '+esc(STUDIO_TYPES[x.material_type]?.name||x.material_type)+'</p><p>'+esc(x.body||'')+'</p>'+(x.offer?'<p><b>'+esc(x.offer)+'</b></p>':'')+'<p>'+esc(x.contact||'')+' '+esc(x.extra||'')+'</p><button class="btn light" onclick="openCreativeDetails(\''+x.id+'\')">Ver material e contato</button></article>'}).join('');observeCreativeCards();
 }
 const creativeSeen=new Set();
 async function recordCreativeEvent(id,eventType,source){if(!id)return;try{await sb.from('av_creative_events').insert({creative_id:id,event_type:eventType,source})}catch(e){}}
 function observeCreativeCards(){if(!('IntersectionObserver' in window))return;const observer=new IntersectionObserver(entries=>entries.forEach(entry=>{if(entry.isIntersecting){const id=entry.target.dataset.creativeId;if(id&&!creativeSeen.has(id)){creativeSeen.add(id);recordCreativeEvent(id,'directory_view','guia')}observer.unobserve(entry.target)}}),{threshold:.45});document.querySelectorAll('[data-creative-id]').forEach(el=>observer.observe(el))}
-function openCreativeDetails(id){const x=creativeDirectoryCache.find(v=>v.id===id);if(!x)return;recordCreativeEvent(id,'material_view','guia');const t=STUDIO_TEMPLATES.find(v=>v.id===x.design_template)||STUDIO_TEMPLATES[0];show(esc(x.brand),'<div style="padding:24px;border-radius:16px;background:'+t.bg+';color:'+t.fg+'"><small>'+esc(x.sector)+' · '+esc(STUDIO_TYPES[x.material_type]?.name||x.material_type)+'</small><h2>'+esc(x.headline)+'</h2><p>'+esc(x.body||'')+'</p><h3>'+esc(x.offer||'')+'</h3><b>'+esc(x.brand)+'</b><p>'+esc(x.contact||'')+' '+esc(x.extra||'')+'</p></div>')}
+function openCreativeDetails(id){const x=creativeDirectoryCache.find(v=>v.id===id);if(!x)return;recordCreativeEvent(id,'material_view','guia');const t=STUDIO_TEMPLATES.find(v=>v.id===x.design_template)||STUDIO_TEMPLATES[0];const pics=(x.image_urls||[]).slice(0,5);show(esc(x.brand),'<div style="padding:24px;border-radius:16px;background:'+t.bg+';color:'+t.fg+'"><small>'+esc(x.sector)+' · '+esc(STUDIO_TYPES[x.material_type]?.name||x.material_type)+'</small><h2>'+esc(x.headline)+'</h2><p>'+esc(x.body||'')+'</p>'+(pics.length?'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:16px 0">'+pics.map(p=>'<img src="'+esc(p.url)+'" alt="Imagem de '+esc(x.brand)+'" style="width:100%;height:180px;object-fit:contain;background:#fff;border-radius:10px">').join('')+'</div>':'')+'<h3>'+esc(x.offer||'')+'</h3><b>'+esc(x.brand)+'</b><p>'+esc(x.contact||'')+' '+esc(x.extra||'')+'</p></div>')}
 function copyAdvertiserLink(){const el=document.getElementById('advertiserLink');if(!el)return;const copy=()=>{el.select();document.execCommand('copy');alert('Link copiado!')};if(navigator.clipboard?.writeText)navigator.clipboard.writeText(el.value).then(()=>alert('Link copiado!')).catch(copy);else copy()}
-async function startAdvertiserDashboard(token){document.body.innerHTML='<main style="min-height:100vh;background:#f3f6fb;padding:28px;font-family:Arial;color:#10243a"><div style="max-width:950px;margin:auto"><a href="'+location.origin+location.pathname+'">← AV Soluções Digitais</a><div id="advertiserStats" style="margin-top:28px"><h2>Carregando seus resultados...</h2></div></div></main>';const {data,error}=await sb.rpc('av_creative_dashboard_stats',{p_token:token});const el=document.getElementById('advertiserStats');if(!el)return;if(error||!data||data.error){el.innerHTML='<h2>Não foi possível abrir este painel</h2><p>Confira se o link está correto ou fale com a AV.</p>';return}const daily=data.daily||[];el.innerHTML='<div style="background:white;padding:26px;border-radius:18px;box-shadow:0 8px 30px #10243a12"><div style="color:#1769e0;font-weight:bold">PAINEL DO ANUNCIANTE</div><h1>'+esc(data.brand)+'</h1><p>'+esc(data.headline)+'</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:24px 0"><div style="background:#edf5ff;padding:18px;border-radius:12px"><small>Visualizações no guia</small><h2>'+Number(data.directory_views||0)+'</h2></div><div style="background:#edf5ff;padding:18px;border-radius:12px"><small>Aberturas do material</small><h2>'+Number(data.material_views||0)+'</h2></div><div style="background:#edf5ff;padding:18px;border-radius:12px"><small>Exibições na TV</small><h2>'+Number(data.tv_impressions||0)+'</h2></div><div style="background:#edf5ff;padding:18px;border-radius:12px"><small>Eventos nos últimos 30 dias</small><h2>'+Number(data.last_30_days||0)+'</h2></div></div><h3>Histórico diário — últimos 30 dias</h3><div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:10px">Data</th><th>Guia</th><th>Material</th><th>TV</th></tr></thead><tbody>'+daily.map(d=>'<tr><td style="padding:9px;border-top:1px solid #ddd">'+new Date(d.day+'T12:00:00').toLocaleDateString('pt-BR')+'</td><td style="text-align:center;border-top:1px solid #ddd">'+d.directory_views+'</td><td style="text-align:center;border-top:1px solid #ddd">'+d.material_views+'</td><td style="text-align:center;border-top:1px solid #ddd">'+d.tv_impressions+'</td></tr>').join('')+'</tbody></table></div><p style="color:#65758b;font-size:13px;margin-top:20px">Os números são eventos registrados e não representam necessariamente pessoas únicas.</p></div>'}
+async function startAdvertiserDashboard(token){document.body.innerHTML='<main style="min-height:100vh;background:#f3f6fb;padding:28px;font-family:Arial;color:#10243a"><div style="max-width:950px;margin:auto"><a href="'+location.origin+location.pathname+'">← AV Soluções Digitais</a><div id="advertiserStats" style="margin-top:28px"><h2>Carregando seus resultados...</h2></div></div></main>';const {data,error}=await sb.rpc('av_creative_dashboard_stats',{p_token:token});const el=document.getElementById('advertiserStats');if(!el)return;if(error||!data||data.error){el.innerHTML='<h2>Não foi possível abrir este painel</h2><p>Confira se o link está correto ou fale com a AV.</p>';return}const daily=data.daily||[];el.innerHTML='<div style="background:white;padding:26px;border-radius:18px;box-shadow:0 8px 30px #10243a12"><div style="color:#1769e0;font-weight:bold">PAINEL DO ANUNCIANTE</div><h1>'+esc(data.brand)+'</h1><p>'+esc(data.headline)+'</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:24px 0"><div style="background:#edf5ff;padding:18px;border-radius:12px"><small>Visualizações no guia</small><h2>'+Number(data.directory_views||0)+'</h2></div><div style="background:#edf5ff;padding:18px;border-radius:12px"><small>Aberturas do material</small><h2>'+Number(data.material_views||0)+'</h2></div><div style="background:#edf5ff;padding:18px;border-radius:12px"><small>Exibições na TV</small><h2>'+Number(data.tv_impressions||0)+'</h2></div><div style="background:#edf5ff;padding:18px;border-radius:12px"><small>Eventos nos últimos 30 dias</small><h2>'+Number(data.last_30_days||0)+'</h2></div></div><h3>Histórico diário — últimos 30 dias</h3><div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:10px">Data</th><th>Guia</th><th>Material</th><th>TV</th></tr></thead><tbody>'+daily.map(d=>'<tr><td style="padding:9px;border-top:1px solid #ddd">'+new Date(d.day+'T12:00:00').toLocaleDateString('pt-BR')+'</td><td style="text-align:center;border-top:1px solid #ddd">'+d.directory_views+'</td><td style="text-align:center;border-top:1px solid #ddd">'+d.material_views+'</td><td style="text-align:center;border-top:1px solid #ddd">'+d.tv_impressions+'</td></tr>').join('')+'</tbody></table></div><p style="color:#65758b;font-size:13px;margin-top:20px">Os números são eventos registrados e não representam necessariamente pessoas únicas.</p></div>';await renderAdvertiserImageManager(token)}
+
+async function renderAdvertiserImageManager(token){
+ const el=document.getElementById('advertiserStats');if(!el)return;
+ const {data,error}=await sb.from('av_creatives').select('brand,tv_plan,tv_requested,image_urls').eq('dashboard_token',token).maybeSingle();
+ if(error||!data){el.insertAdjacentHTML('beforeend','<p>Não foi possível carregar as imagens deste anúncio.</p>');return}
+ if(data.tv_plan!=='premium'||!data.tv_requested){el.insertAdjacentHTML('beforeend','<section style="margin-top:22px;background:#fff;padding:22px;border-radius:16px"><h2>Imagens para a TV</h2><p>O envio de imagens está disponível para anúncios solicitados no Plano Premium.</p></section>');return}
+ const pics=Array.isArray(data.image_urls)?data.image_urls:[];
+ el.insertAdjacentHTML('beforeend','<section style="margin-top:22px;background:#fff;padding:22px;border-radius:16px"><h2>Imagens do anúncio Premium</h2><p>Adicione até 5 imagens. Aceitamos JPG, PNG, WEBP e GIF, em diferentes dimensões. Na TV, elas serão exibidas em sequência dentro do tempo do anúncio.</p><p><b>'+pics.length+' de 5 imagens utilizadas</b></p><div id="advertiserImageGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin:14px 0">'+pics.map((p,i)=>'<div style="border:1px solid #dbe3ef;border-radius:12px;padding:9px"><img src="'+esc(p.url)+'" alt="Imagem '+(i+1)+'" style="width:100%;height:130px;object-fit:contain;background:#f4f7fb;border-radius:8px"><small style="display:block;overflow-wrap:anywhere;margin:6px 0">'+esc(p.name||('Imagem '+(i+1)))+'</small><button class="btn light" type="button" onclick="removeAdvertiserImage(\''+esc(token)+'\','+i+')" style="width:100%">Remover imagem</button></div>').join('')+'</div><label for="avPremiumImagesInput"><b>Escolher imagens</b></label><input id="avPremiumImagesInput" type="file" accept="image/jpeg,image/png,image/webp,image/gif" multiple '+(pics.length>=5?'disabled':'')+' style="display:block;width:100%;margin:10px 0 14px"><button class="btn primary" type="button" onclick="uploadAdvertiserImages(\''+esc(token)+'\')" '+(pics.length>=5?'disabled':'')+'>Enviar imagens selecionadas</button><p id="avImageUploadStatus" class="muted" aria-live="polite"></p></section>');
+}
+async function uploadAdvertiserImages(token){
+ const input=document.getElementById('avPremiumImagesInput'),status=document.getElementById('avImageUploadStatus');
+ const files=Array.from(input?.files||[]);
+ if(!files.length){alert('Escolha pelo menos uma imagem.');return}
+ const {data:row,error:readError}=await sb.from('av_creatives').select('image_urls,tv_plan,tv_requested').eq('dashboard_token',token).maybeSingle();
+ if(readError||!row){alert('Não foi possível localizar seu anúncio.');return}
+ const current=Array.isArray(row.image_urls)?row.image_urls:[];
+ if(current.length+files.length>5){alert('Você pode manter no máximo 5 imagens. Remova alguma imagem ou selecione menos arquivos.');return}
+ if(row.tv_plan!=='premium'||!row.tv_requested){alert('O envio está disponível somente para anúncios Premium.');return}
+ const uploaded=[];
+ for(let i=0;i<files.length;i++){
+  const file=files[i];
+  if(!/^image\/(jpeg|png|webp|gif)$/.test(file.type)){alert('Formato não permitido: '+file.name);return}
+  if(file.size>12582912){alert('Cada imagem deve ter até 12 MB: '+file.name);return}
+  if(status)status.textContent='Enviando '+(i+1)+' de '+files.length+'...';
+  const ext=({ 'image/jpeg':'jpg','image/png':'png','image/webp':'webp','image/gif':'gif' })[file.type];
+  const path=token+'/'+crypto.randomUUID()+'.'+ext;
+  const {error:upError}=await sb.storage.from('av-premium-images').upload(path,file,{cacheControl:'3600',upsert:false,contentType:file.type});
+  if(upError){alert('Falha ao enviar '+file.name+': '+upError.message);return}
+  const {data:pub}=sb.storage.from('av-premium-images').getPublicUrl(path);
+  uploaded.push({path,url:pub.publicUrl,name:file.name,size:file.size});
+ }
+ const {error:saveError}=await sb.rpc('av_update_creative_images',{p_token:token,p_images:[...current,...uploaded]});
+ if(saveError){await sb.storage.from('av-premium-images').remove(uploaded.map(x=>x.path));alert('Não foi possível vincular as imagens: '+saveError.message);return}
+ alert('Imagens adicionadas ao anúncio Premium!');
+ await renderAdvertiserImageManager(token);
+}
+async function removeAdvertiserImage(token,index){
+ if(!confirm('Remover esta imagem do anúncio?'))return;
+ const {data:row,error}=await sb.from('av_creatives').select('image_urls').eq('dashboard_token',token).maybeSingle();
+ if(error||!row){alert('Não foi possível carregar as imagens.');return}
+ const pics=Array.isArray(row.image_urls)?row.image_urls:[];
+ if(index<0||index>=pics.length)return;
+ const removed=pics[index],next=pics.filter((_,i)=>i!==index);
+ const {error:saveError}=await sb.rpc('av_update_creative_images',{p_token:token,p_images:next});
+ if(saveError){alert('Não foi possível remover a imagem: '+saveError.message);return}
+ if(removed.path)await sb.storage.from('av-premium-images').remove([removed.path]);
+ await renderAdvertiserImageManager(token);
+}
+function renderTvCreative(item,t,delay){
+ const el=document.getElementById('tvCreative');if(!el)return;
+ if(window.tvImageTimer)clearInterval(window.tvImageTimer);
+ const pics=(Array.isArray(item.image_urls)?item.image_urls:[]).slice(0,5);
+ if(!pics.length){
+  el.innerHTML='<article style="width:100%;min-height:55vh;padding:5vw;border-radius:30px;background:'+t.bg+';color:'+t.fg+';display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;box-shadow:0 20px 80px #0008"><small style="letter-spacing:4px">'+esc(item.sector)+' • '+esc(STUDIO_TYPES[item.material_type]?.name||item.material_type)+'</small><h1 style="font-size:clamp(38px,7vw,92px);margin:25px 0">'+esc(item.headline)+'</h1><p style="font-size:clamp(20px,3vw,36px)">'+esc(item.body||'')+'</p><strong style="font-size:clamp(28px,5vw,58px);color:'+t.accent+'">'+esc(item.offer||'')+'</strong><h2>'+esc(item.brand)+'</h2><p>'+esc(item.contact||'')+' '+esc(item.extra||'')+'</p></article>';
+  return;
+ }
+ let index=0;
+ const draw=()=>{const p=pics[index];el.innerHTML='<div style="width:100%;height:70vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px"><img src="'+esc(p.url)+'" alt="Anúncio de '+esc(item.brand)+'" style="width:100%;height:62vh;object-fit:contain;border-radius:18px;background:#fff"><div style="max-width:90vw;color:#fff;text-align:center"><b style="font-size:clamp(20px,3vw,34px)">'+esc(item.brand)+'</b><span style="margin-left:12px;color:#8bdcff">'+esc(item.headline)+'</span><div style="font-size:12px;color:#9db3cc;margin-top:5px">Imagem '+(index+1)+' de '+pics.length+'</div></div></div>'};
+ draw();
+ if(pics.length>1){const interval=Math.max(700,Math.floor(delay/pics.length));window.tvImageTimer=window.setInterval(()=>{index=(index+1)%pics.length;draw()},interval)}
+}
 async function startTvMode(launchFullscreen=false){
  if(launchFullscreen&&document.documentElement.requestFullscreen){try{await document.documentElement.requestFullscreen()}catch(e){}}
  window.avTvVoiceEnabled=true;
@@ -236,7 +297,7 @@ async function startTvMode(launchFullscreen=false){
  }
  async function next(){
   const {data:tvMode}=await sb.from('av_tv_settings').select('test_mode').eq('id',1).maybeSingle();
-  let query=sb.from('av_creatives').select('id,brand,sector,material_type,headline,body,offer,contact,extra,design_template').eq('status','active').order('display_priority',{ascending:false});
+  let query=sb.from('av_creatives').select('id,brand,sector,material_type,headline,body,offer,contact,extra,design_template,image_urls').eq('status','active').order('display_priority',{ascending:false});
   if(!tvMode?.test_mode)query=query.eq('is_paid',true).eq('payment_status','confirmed').eq('tv_requested',true).eq('tv_plan','premium');
   const {data,error}=await query;
   const el=document.getElementById('tvCreative');if(!el)return;
@@ -248,7 +309,7 @@ async function startTvMode(launchFullscreen=false){
    return;
   }
   const item=data[Math.floor(Math.random()*data.length)],t=STUDIO_TEMPLATES.find(x=>x.id===item.design_template)||STUDIO_TEMPLATES[0];
-  el.innerHTML='<article style="width:100%;min-height:55vh;padding:5vw;border-radius:30px;background:'+t.bg+';color:'+t.fg+';display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;box-shadow:0 20px 80px #0008"><small style="letter-spacing:4px">'+esc(item.sector)+' • '+esc(STUDIO_TYPES[item.material_type]?.name||item.material_type)+'</small><h1 style="font-size:clamp(38px,7vw,92px);margin:25px 0">'+esc(item.headline)+'</h1><p style="font-size:clamp(20px,3vw,36px)">'+esc(item.body||'')+'</p><strong style="font-size:clamp(28px,5vw,58px);color:'+t.accent+'">'+esc(item.offer||'')+'</strong><h2>'+esc(item.brand)+'</h2><p>'+esc(item.contact||'')+' '+esc(item.extra||'')+'</p></article>';
+  renderTvCreative(item,t,data.length>=6?5000:10000);
   recordCreativeEvent(item.id,'tv_impression','painel-tv');
   window.avTvLastSpoken=item;speakTvAd(item);
   const delay=data.length>=6?5000:10000;window.avTvFastRotation=data.length>=6;
