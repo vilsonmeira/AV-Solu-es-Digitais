@@ -207,15 +207,59 @@ function copyAdvertiserLink(){const el=document.getElementById('advertiserLink')
 async function startAdvertiserDashboard(token){document.body.innerHTML='<main style="min-height:100vh;background:#f3f6fb;padding:28px;font-family:Arial;color:#10243a"><div style="max-width:950px;margin:auto"><a href="'+location.origin+location.pathname+'">← AV Soluções Digitais</a><div id="advertiserStats" style="margin-top:28px"><h2>Carregando seus resultados...</h2></div></div></main>';const {data,error}=await sb.rpc('av_creative_dashboard_stats',{p_token:token});const el=document.getElementById('advertiserStats');if(!el)return;if(error||!data||data.error){el.innerHTML='<h2>Não foi possível abrir este painel</h2><p>Confira se o link está correto ou fale com a AV.</p>';return}const daily=data.daily||[];el.innerHTML='<div style="background:white;padding:26px;border-radius:18px;box-shadow:0 8px 30px #10243a12"><div style="color:#1769e0;font-weight:bold">PAINEL DO ANUNCIANTE</div><h1>'+esc(data.brand)+'</h1><p>'+esc(data.headline)+'</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:24px 0"><div style="background:#edf5ff;padding:18px;border-radius:12px"><small>Visualizações no guia</small><h2>'+Number(data.directory_views||0)+'</h2></div><div style="background:#edf5ff;padding:18px;border-radius:12px"><small>Aberturas do material</small><h2>'+Number(data.material_views||0)+'</h2></div><div style="background:#edf5ff;padding:18px;border-radius:12px"><small>Exibições na TV</small><h2>'+Number(data.tv_impressions||0)+'</h2></div><div style="background:#edf5ff;padding:18px;border-radius:12px"><small>Eventos nos últimos 30 dias</small><h2>'+Number(data.last_30_days||0)+'</h2></div></div><h3>Histórico diário — últimos 30 dias</h3><div style="overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;padding:10px">Data</th><th>Guia</th><th>Material</th><th>TV</th></tr></thead><tbody>'+daily.map(d=>'<tr><td style="padding:9px;border-top:1px solid #ddd">'+new Date(d.day+'T12:00:00').toLocaleDateString('pt-BR')+'</td><td style="text-align:center;border-top:1px solid #ddd">'+d.directory_views+'</td><td style="text-align:center;border-top:1px solid #ddd">'+d.material_views+'</td><td style="text-align:center;border-top:1px solid #ddd">'+d.tv_impressions+'</td></tr>').join('')+'</tbody></table></div><p style="color:#65758b;font-size:13px;margin-top:20px">Os números são eventos registrados e não representam necessariamente pessoas únicas.</p></div>'}
 async function startTvMode(launchFullscreen=false){
  if(launchFullscreen&&document.documentElement.requestFullscreen){try{await document.documentElement.requestFullscreen()}catch(e){}}
- document.body.innerHTML='<main id="avTv" style="min-height:100vh;background:#071426;color:white;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:4vw;font-family:Arial;text-align:center"><div style="position:fixed;top:18px;left:24px;letter-spacing:3px;font-size:13px;color:#8bdcff">AV SOLUÇÕES DIGITAIS • PAINEL DE ANUNCIANTES</div><div style="position:fixed;top:12px;right:16px;display:flex;gap:8px;z-index:10"><button onclick="document.documentElement.requestFullscreen?.().catch(()=>{})" style="border:1px solid #6c88a8;background:#102b49;color:white;padding:10px 14px;border-radius:10px;font-size:15px">⛶ Maximizar</button><button onclick="if(document.fullscreenElement)document.exitFullscreen();location.href=location.pathname" style="border:1px solid #6c88a8;background:#102b49;color:white;padding:10px 14px;border-radius:10px;font-size:15px">✕ Sair</button></div><div id="tvCreative" style="width:min(88vw,1200px);min-height:60vh;display:flex;align-items:center;justify-content:center"><h2>Carregando anúncios pagos...</h2></div><div style="position:fixed;bottom:18px;color:#9db3cc;font-size:13px">Tela de espera • Divulgação rotativa • <span id="tvClock"></span></div></main>';
- async function next(){
-  const {data,error}=await sb.from('av_creatives').select('id,brand,sector,material_type,headline,body,offer,contact,extra,design_template,free_expires_at').eq('status','active').eq('is_paid',true).eq('payment_status','confirmed').eq('tv_requested',true).eq('tv_plan','premium').order('display_priority',{ascending:false});
-  const el=document.getElementById('tvCreative');if(!el)return;
-  if(error||!data?.length){el.innerHTML='<div><h1>Seu negócio pode aparecer aqui!</h1><p>Espaço reservado para anunciantes pagos da AV.</p><p>Solicite seu anúncio em avsolucoesdigitais.com.br</p></div>';return}
-  const item=data[Math.floor(Math.random()*data.length)],t=STUDIO_TEMPLATES.find(x=>x.id===item.design_template)||STUDIO_TEMPLATES[0];
-  el.innerHTML='<article style="width:100%;min-height:55vh;padding:5vw;border-radius:30px;background:'+t.bg+';color:'+t.fg+';display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;box-shadow:0 20px 80px #0008"><small style="letter-spacing:4px">'+esc(item.sector)+' • '+esc(STUDIO_TYPES[item.material_type]?.name||item.material_type)+'</small><h1 style="font-size:clamp(38px,7vw,92px);margin:25px 0">'+esc(item.headline)+'</h1><p style="font-size:clamp(20px,3vw,36px)">'+esc(item.body||'')+'</p><strong style="font-size:clamp(28px,5vw,58px);color:'+t.accent+'">'+esc(item.offer||'')+'</strong><h2>'+esc(item.brand)+'</h2><p>'+esc(item.contact||'')+' '+esc(item.extra||'')+'</p></article>';recordCreativeEvent(item.id,'tv_impression','painel-tv');
+ window.avTvVoiceEnabled=true;
+ if(window.speechSynthesis)window.speechSynthesis.cancel();
+ document.body.innerHTML='<main id="avTv" style="min-height:100vh;background:#071426;color:white;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:4vw;font-family:Arial;text-align:center"><div style="position:fixed;top:18px;left:24px;letter-spacing:3px;font-size:13px;color:#8bdcff">AV SOLUÇÕES DIGITAIS • PAINEL DE ANUNCIANTES</div><div style="position:fixed;top:12px;right:16px;display:flex;gap:8px;z-index:10"><button id="tvVoiceToggle" onclick="toggleTvVoice()" style="border:1px solid #6c88a8;background:#102b49;color:white;padding:10px 14px;border-radius:10px;font-size:15px">🔊 Voz ligada</button><button onclick="document.documentElement.requestFullscreen?.().catch(()=>{})" style="border:1px solid #6c88a8;background:#102b49;color:white;padding:10px 14px;border-radius:10px;font-size:15px">⛶ Maximizar</button><button onclick="if(window.speechSynthesis)window.speechSynthesis.cancel();if(document.fullscreenElement)document.exitFullscreen();location.href=location.pathname" style="border:1px solid #6c88a8;background:#102b49;color:white;padding:10px 14px;border-radius:10px;font-size:15px">✕ Sair</button></div><div id="tvCreative" style="width:min(88vw,1200px);min-height:60vh;display:flex;align-items:center;justify-content:center"><h2>Carregando anúncios Premium...</h2></div><div id="tvRotationInfo" style="position:fixed;bottom:42px;color:#8bdcff;font-size:13px">Anúncios Premium • Alternância automática</div><div style="position:fixed;bottom:18px;color:#9db3cc;font-size:13px">Painel de divulgação • <span id="tvClock"></span></div></main>';
+ function toggleTvVoice(){
+  window.avTvVoiceEnabled=!window.avTvVoiceEnabled;
+  const b=document.getElementById('tvVoiceToggle');
+  if(!window.avTvVoiceEnabled&&window.speechSynthesis)window.speechSynthesis.cancel();
+  if(b)b.textContent=window.avTvVoiceEnabled?'🔊 Voz ligada':'🔇 Voz desligada';
+  if(window.avTvVoiceEnabled&&window.avTvLastSpoken) speakTvAd(window.avTvLastSpoken);
  }
- await next();tvTimer=window.setInterval(next,12000);window.setInterval(()=>{const c=document.getElementById('tvClock');if(c)c.textContent=new Date().toLocaleString('pt-BR')},1000);
+ function speakTvAd(item){
+  if(!window.avTvVoiceEnabled||!window.speechSynthesis||!item)return;
+  window.speechSynthesis.cancel();
+  const clean=v=>String(v||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  const parts=[
+   'Atenção, clientes! Temos uma oferta especial para você.',
+   'Conheça '+clean(item.brand)+'.',
+   clean(item.headline)+'.',
+   clean(item.body),
+   item.offer?'Aproveite: '+clean(item.offer)+'.':'',
+   item.contact?'Entre em contato: '+clean(item.contact)+'.':'',
+   ' '+clean(item.extra),
+   ' '+clean(item.brand)+'. '+ 'A sua melhor escolha!'
+  ].filter(Boolean);
+  const utterance=new SpeechSynthesisUtterance(parts.join(' '));
+  utterance.lang='pt-BR';utterance.rate=0.94;utterance.pitch=1.04;utterance.volume=1;
+  const voices=window.speechSynthesis.getVoices();
+  const voice=voices.find(v=>/^pt-BR$/i.test(v.lang))||voices.find(v=>/^pt/i.test(v.lang));
+  if(voice)utterance.voice=voice;
+  window.speechSynthesis.speak(utterance);
+ }
+ async function next(){
+  const {data,error}=await sb.from('av_creatives').select('id,brand,sector,material_type,headline,body,offer,contact,extra,design_template').eq('status','active').eq('is_paid',true).eq('payment_status','confirmed').eq('tv_requested',true).eq('tv_plan','premium').order('display_priority',{ascending:false});
+  const el=document.getElementById('tvCreative');if(!el)return;
+  if(error||!data?.length){
+   el.innerHTML='<div><h1>Seu negócio pode aparecer aqui!</h1><p>A TV é exclusiva para anunciantes do plano Premium com pagamento confirmado.</p><p>Fale com a AV Soluções Digitais para anunciar.</p></div>';
+   const info=document.getElementById('tvRotationInfo');if(info)info.textContent='Aguardando anúncios Premium aprovados';
+   if(window.tvTimer)clearTimeout(window.tvTimer);
+   window.tvTimer=window.setTimeout(next,10000);
+   return;
+  }
+  const item=data[Math.floor(Math.random()*data.length)],t=STUDIO_TEMPLATES.find(x=>x.id===item.design_template)||STUDIO_TEMPLATES[0];
+  el.innerHTML='<article style="width:100%;min-height:55vh;padding:5vw;border-radius:30px;background:'+t.bg+';color:'+t.fg+';display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;box-shadow:0 20px 80px #0008"><small style="letter-spacing:4px">'+esc(item.sector)+' • '+esc(STUDIO_TYPES[item.material_type]?.name||item.material_type)+'</small><h1 style="font-size:clamp(38px,7vw,92px);margin:25px 0">'+esc(item.headline)+'</h1><p style="font-size:clamp(20px,3vw,36px)">'+esc(item.body||'')+'</p><strong style="font-size:clamp(28px,5vw,58px);color:'+t.accent+'">'+esc(item.offer||'')+'</strong><h2>'+esc(item.brand)+'</h2><p>'+esc(item.contact||'')+' '+esc(item.extra||'')+'</p></article>';
+  recordCreativeEvent(item.id,'tv_impression','painel-tv');
+  window.avTvLastSpoken=item;speakTvAd(item);
+  const delay=data.length>=6?5000:10000;
+  const info=document.getElementById('tvRotationInfo');if(info)info.textContent=data.length+' anunciante(s) Premium • próximo anúncio em '+(delay/1000)+' segundos';
+  if(window.tvTimer)clearTimeout(window.tvTimer);
+  window.tvTimer=window.setTimeout(next,delay);
+ }
+ await next();
+ if(window.tvClockTimer)clearInterval(window.tvClockTimer);
+ window.tvClockTimer=window.setInterval(()=>{const c=document.getElementById('tvClock');if(c)c.textContent=new Date().toLocaleString('pt-BR')},1000);
 }
 function printStudioArtwork(){const el=document.getElementById('studioArtwork');if(!el)return;const w=window.open('','_blank');if(!w){alert('Permita janelas pop-up para imprimir.');return}w.document.write('<html><head><title>Material gráfico AV</title><meta charset="utf-8"><style>body{margin:12mm;font-family:Arial}#studioArtwork{margin:auto}@page{margin:10mm}</style></head><body>'+el.outerHTML+'<script>window.onload=()=>window.print()<\\/script></body></html>');w.document.close()}
 function requestStudioAd(){const d=studioDraft;if(!d)return;openRequest();const form=document.getElementById('requestForm');if(form){form.elements.company_name.value=d.brand;form.elements.message.value='Solicito divulgação de '+STUDIO_TYPES[d.type].name+'. Título: '+d.headline+'. Segmento: '+d.sector+'. Texto: '+d.body+'. Oferta: '+d.offer;form.elements.whatsapp.value=(d.contact||'').replace(/\\D/g,'')}}
