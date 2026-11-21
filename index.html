@@ -331,6 +331,12 @@ function renderTvCreative(item,t,delay){
  draw();
  if(pics.length>1){const interval=Math.max(700,Math.floor(delay/pics.length));window.tvImageTimer=window.setInterval(()=>{index=(index+1)%pics.length;draw()},interval)}
 }
+
+function renderMissingAlertOnTv(m){
+ const el=document.getElementById('tvCreative');if(!el)return;
+ el.innerHTML='<div style="width:100%;display:grid;grid-template-columns:minmax(240px,1fr) minmax(260px,1fr);gap:28px;align-items:center;text-align:left;background:#fff;color:#15243a;border-radius:24px;padding:clamp(18px,3vw,38px);box-shadow:0 18px 60px #0008"><div style="text-align:center"><div style="font-size:clamp(25px,4vw,46px);font-weight:950;color:#b91c1c;margin-bottom:14px">AVISO GRATUITO</div><img src="'+esc(m.photo_url)+'" alt="Foto de '+esc(m.subject_name)+'" style="width:100%;height:48vh;max-height:480px;object-fit:contain;background:#f1f5f9;border-radius:14px"></div><div><div style="font-size:clamp(15px,2vw,22px);font-weight:900;color:#b91c1c">'+esc(m.category)+'</div><h1 style="font-size:clamp(32px,5vw,64px);margin:12px 0">'+esc(m.subject_name)+'</h1><p style="font-size:clamp(17px,2vw,25px);line-height:1.45">'+esc(m.description)+'</p><p style="font-size:clamp(16px,2vw,23px)"><b>Último local:</b> '+esc(m.last_seen)+'</p><p style="font-size:clamp(16px,2vw,23px)"><b>Contato:</b> '+esc(m.contact_name)+' · '+esc(m.contact_phone)+'</p><div style="font-size:clamp(14px,1.5vw,18px);font-weight:900;color:#b91c1c">COMPARTILHE ESTE AVISO. AJUDE A ENCONTRAR!</div></div></div>';
+}
+
 async function startTvMode(launchFullscreen=false){
  window.avLastMissingAt=Date.now();window.avMissingIndex=0;
  if(launchFullscreen&&document.documentElement.requestFullscreen){try{await document.documentElement.requestFullscreen()}catch(e){}}
@@ -359,6 +365,15 @@ async function startTvMode(launchFullscreen=false){
   window.speechSynthesis.speak(utterance);
  }
  async function next(){
+  const {data:missingAlerts}=await sb.from('av_missing_alerts').select('id,category,subject_name,description,last_seen,contact_name,contact_phone,photo_url').eq('status','approved').gt('expires_at',new Date().toISOString()).order('created_at',{ascending:false});
+  const hasMissing=Array.isArray(missingAlerts)&&missingAlerts.length>0;
+  if(hasMissing&&Date.now()-window.avLastMissingAt>=15000){
+   const m=missingAlerts[window.avMissingIndex%missingAlerts.length];window.avMissingIndex++;
+   window.avLastMissingAt=Date.now();renderMissingAlertOnTv(m);
+   const info=document.getElementById('tvRotationInfo');if(info)info.textContent='Serviço gratuito de utilidade pública • Pessoas e animais desaparecidos';
+   if(window.speechSynthesis)window.speechSynthesis.cancel();
+   if(window.tvTimer)clearTimeout(window.tvTimer);window.tvTimer=window.setTimeout(next,8000);return;
+  }
   const {data:tvMode}=await sb.from('av_tv_settings').select('test_mode').eq('id',1).maybeSingle();
   let query=sb.from('av_creatives').select('id,brand,sector,material_type,headline,body,offer,contact,extra,design_template,image_urls').eq('status','active').order('display_priority',{ascending:false});
   if(!tvMode?.test_mode)query=query.eq('is_paid',true).eq('payment_status','confirmed').eq('tv_requested',true).eq('tv_plan','premium');
@@ -375,7 +390,9 @@ async function startTvMode(launchFullscreen=false){
   renderTvCreative(item,t,data.length>=6?5000:10000);
   recordCreativeEvent(item.id,'tv_impression','painel-tv');
   window.avTvLastSpoken=item;speakTvAd(item);
-  const delay=data.length>=6?5000:10000;window.avTvFastRotation=data.length>=6;
+  const normalDelay=data.length>=6?5000:10000;window.avTvFastRotation=data.length>=6;
+  const untilMissing=hasMissing?Math.max(1000,15000-(Date.now()-window.avLastMissingAt)):normalDelay;
+  const delay=Math.min(normalDelay,untilMissing);
   const info=document.getElementById('tvRotationInfo');if(info)info.textContent=data.length+' material(is) '+(tvMode?.test_mode?'no modo teste':'Premium aprovado(s)')+' • próximo anúncio em '+(delay/1000)+' segundos';
   if(window.tvTimer)clearTimeout(window.tvTimer);
   window.tvTimer=window.setTimeout(next,delay);
