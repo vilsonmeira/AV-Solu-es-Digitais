@@ -221,16 +221,9 @@ async function startTvMode(launchFullscreen=false){
   if(!window.avTvVoiceEnabled||!window.speechSynthesis||!item)return;
   window.speechSynthesis.cancel();
   const clean=v=>String(v||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-  const parts=[
-   'Atenção, clientes! Temos uma oferta especial para você.',
-   'Conheça '+clean(item.brand)+'.',
-   clean(item.headline)+'.',
-   clean(item.body),
-   item.offer?'Aproveite: '+clean(item.offer)+'.':'',
-   item.contact?'Entre em contato: '+clean(item.contact)+'.':'',
-   ' '+clean(item.extra),
-   ' '+clean(item.brand)+'. '+ 'A sua melhor escolha!'
-  ].filter(Boolean);
+  const parts=window.avTvFastRotation
+   ? ['Atenção! '+clean(item.brand)+'.',clean(item.headline)+'.',item.offer?'Oferta: '+clean(item.offer)+'.':'']
+   : ['Atenção, clientes! Temos uma oferta especial para você.','Conheça '+clean(item.brand)+'.',clean(item.headline)+'.',clean(item.body),item.offer?'Aproveite: '+clean(item.offer)+'.':'',item.contact?'Entre em contato: '+clean(item.contact)+'.':'',clean(item.extra),' '+clean(item.brand)+'. A sua melhor escolha!'].filter(Boolean);
   const utterance=new SpeechSynthesisUtterance(parts.join(' '));
   utterance.lang='pt-BR';utterance.rate=0.94;utterance.pitch=1.04;utterance.volume=1;
   const voices=window.speechSynthesis.getVoices();
@@ -252,7 +245,7 @@ async function startTvMode(launchFullscreen=false){
   el.innerHTML='<article style="width:100%;min-height:55vh;padding:5vw;border-radius:30px;background:'+t.bg+';color:'+t.fg+';display:flex;flex-direction:column;justify-content:center;box-sizing:border-box;box-shadow:0 20px 80px #0008"><small style="letter-spacing:4px">'+esc(item.sector)+' • '+esc(STUDIO_TYPES[item.material_type]?.name||item.material_type)+'</small><h1 style="font-size:clamp(38px,7vw,92px);margin:25px 0">'+esc(item.headline)+'</h1><p style="font-size:clamp(20px,3vw,36px)">'+esc(item.body||'')+'</p><strong style="font-size:clamp(28px,5vw,58px);color:'+t.accent+'">'+esc(item.offer||'')+'</strong><h2>'+esc(item.brand)+'</h2><p>'+esc(item.contact||'')+' '+esc(item.extra||'')+'</p></article>';
   recordCreativeEvent(item.id,'tv_impression','painel-tv');
   window.avTvLastSpoken=item;speakTvAd(item);
-  const delay=data.length>=6?5000:10000;
+  const delay=data.length>=6?5000:10000;window.avTvFastRotation=data.length>=6;
   const info=document.getElementById('tvRotationInfo');if(info)info.textContent=data.length+' anunciante(s) Premium • próximo anúncio em '+(delay/1000)+' segundos';
   if(window.tvTimer)clearTimeout(window.tvTimer);
   window.tvTimer=window.setTimeout(next,delay);
