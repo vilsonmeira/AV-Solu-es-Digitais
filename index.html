@@ -164,7 +164,7 @@ async function loadClientCards(){
 }
 
 async function adminLogout(){await sb.auth.signOut();currentAdmin=null;closeModal()}
-loadAds();loadCreativeDirectory();setupSuggestionForm();loadSiteSuggestions();setupMissingAlertForm();loadMissingAlerts();const pageParams=new URLSearchParams(location.search);if(pageParams.get('painel-tv')==='1')startTvMode();else if(pageParams.get('anunciante'))startAdvertiserDashboard(pageParams.get('anunciante'));
+loadAds();loadCreativeDirectory();setupSuggestionForm();loadSiteSuggestions();setupMissingAlertForm();loadMissingAlerts();const pageParams=new URLSearchParams(location.search);if(pageParams.get('painel-tv')==='1'){startTvMode()}else{loadLiveNews();setInterval(()=>loadLiveNews(),300000);if(pageParams.get('anunciante'))startAdvertiserDashboard(pageParams.get('anunciante'))}
 let views=0;const opened=new Set(),events=[];
 function track(name){views++;opened.add(name);events.unshift(new Date().toLocaleTimeString('pt-BR')+' — abriu: '+name);events.splice(8);document.getElementById('localViews').textContent=views;document.getElementById('localWindows').textContent=opened.size;document.getElementById('activity').textContent=events.join(' • ')}
 function show(title,body){track(title);document.getElementById('modalcontent').innerHTML='<h2>'+title+'</h2>'+body;document.getElementById('modal').classList.add('open')}
