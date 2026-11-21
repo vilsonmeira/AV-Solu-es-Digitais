@@ -211,7 +211,7 @@ async function startAdvertiserDashboard(token){document.body.innerHTML='<main st
 
 async function renderAdvertiserImageManager(token){
  const el=document.getElementById('advertiserStats');if(!el)return;el.querySelector('#avPremiumImageManager')?.remove();
- const {data,error}=await sb.from('av_creatives').select('brand,tv_plan,tv_requested,image_urls').eq('dashboard_token',token).maybeSingle();
+ const {data,error}=await sb.rpc('av_get_creative_images',{p_token:token});
  if(error||!data){el.insertAdjacentHTML('beforeend','<p>Não foi possível carregar as imagens deste anúncio.</p>');return}
  if(data.tv_plan!=='premium'||!data.tv_requested){el.insertAdjacentHTML('beforeend','<section id="avPremiumImageManager" style="margin-top:22px;background:#fff;padding:22px;border-radius:16px"><h2>Imagens para a TV</h2><p>O envio de imagens está disponível para anúncios solicitados no Plano Premium.</p></section>');return}
  const pics=Array.isArray(data.image_urls)?data.image_urls:[];
@@ -221,7 +221,7 @@ async function uploadAdvertiserImages(token){
  const input=document.getElementById('avPremiumImagesInput'),status=document.getElementById('avImageUploadStatus');
  const files=Array.from(input?.files||[]);
  if(!files.length){alert('Escolha pelo menos uma imagem.');return}
- const {data:row,error:readError}=await sb.from('av_creatives').select('image_urls,tv_plan,tv_requested').eq('dashboard_token',token).maybeSingle();
+ const {data:row,error:readError}=await sb.rpc('av_get_creative_images',{p_token:token});
  if(readError||!row){alert('Não foi possível localizar seu anúncio.');return}
  const current=Array.isArray(row.image_urls)?row.image_urls:[];
  if(current.length+files.length>5){alert('Você pode manter no máximo 5 imagens. Remova alguma imagem ou selecione menos arquivos.');return}
@@ -248,7 +248,7 @@ async function uploadAdvertiserImages(token){
 }
 async function removeAdvertiserImage(token,index){
  if(!confirm('Remover esta imagem do anúncio?'))return;
- const {data:row,error}=await sb.from('av_creatives').select('image_urls').eq('dashboard_token',token).maybeSingle();
+ const {data:row,error}=await sb.rpc('av_get_creative_images',{p_token:token});
  if(error||!row){alert('Não foi possível carregar as imagens.');return}
  const pics=Array.isArray(row.image_urls)?row.image_urls:[];
  if(index<0||index>=pics.length)return;
